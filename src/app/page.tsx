@@ -277,6 +277,13 @@ export default function Home() {
       setHistory([]);
       setAiReply('');
     } else {
+      isListeningRef.current = true;
+      setIsListening(true);
+      setAiReply('');
+      lastSentRef.current = '';
+
+      startRecognition();
+
       const ctx = new AudioContext();
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
@@ -301,13 +308,6 @@ export default function Home() {
       analyserRef.current = analyser;
       micGainRef.current = micGain;
       audioDataRef.current = new Uint8Array(analyser.frequencyBinCount);
-
-      isListeningRef.current = true;
-      setIsListening(true);
-      setAiReply('');
-      lastSentRef.current = '';
-
-      startRecognition();
     }
   }, [stopRecognition, startRecognition]);
 
