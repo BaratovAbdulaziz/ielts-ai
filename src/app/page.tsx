@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { MicOff, Volume2, VolumeX, Settings } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { FireSphere } from '@/components/ui/fire-sphere';
 
 function lerp(a: number, b: number, t: number) {
@@ -12,6 +11,7 @@ function lerp(a: number, b: number, t: number) {
 declare global {
   interface Window {
     webkitSpeechRecognition: new () => SpeechRecognition;
+    SpeechRecognition: new () => SpeechRecognition;
   }
 }
 
@@ -47,10 +47,15 @@ export default function Home() {
     setInterim('');
   }, []);
 
+  const [sttSupported, setSttSupported] = useState(true);
+
   const startRecognition = useCallback(() => {
     if (isSpeakingRef.current || recognitionRef.current) return;
-    const SpeechRecognitionAPI = window.webkitSpeechRecognition;
-    if (!SpeechRecognitionAPI) return;
+    const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognitionAPI) {
+      setSttSupported(false);
+      return;
+    }
 
     const recognition = new SpeechRecognitionAPI();
     recognition.continuous = true;
@@ -258,7 +263,15 @@ export default function Home() {
       setAiReply('');
     } else {
       const ctx = new AudioContext();
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          channelCount: 1,
+          sampleRate: 16000,
+        },
+      });
       const source = ctx.createMediaStreamSource(stream);
       const analyser = ctx.createAnalyser();
       const micGain = ctx.createGain();
@@ -314,59 +327,29 @@ export default function Home() {
       : 'radial-gradient(ellipse at center, #1e1e22 0%, #0a0a0c 70%, #000000 100%)';
 
   return (
-    <div className="relative h-screen w-screen overflow-hidden" style={{ background: bgStyle }}>
+    <div className="relative h-dvh w-screen overflow-hidden" style={{ background: bgStyle }}>
       <FireSphere
         mode={sphereMode}
         intensity={rms}
       />
 
-      <div className="absolute top-0 left-0 z-20 p-4">
+      <div className="absolute top-0 left-0 z-20 p-3 safe-top sm:p-4">
         <a
           href="/pathfinder"
-          className="size-10 flex items-center justify-center bg-white/5 hover:bg-white/10 border border-white/10 rounded-full text-[#666666] hover:text-[#969696] transition-all duration-300"
+          className="size-11 sm:size-10 flex items-center justify-center bg-white/5 hover:bg-white/10 border border-white/10 rounded-full text-[#666666] hover:text-[#969696] transition-all duration-300"
         >
           <Settings className="size-4" />
         </a>
       </div>
 
-      <div className="absolute top-0 inset-x-0 z-10 flex justify-center px-6 pt-8">
-        <div className="max-w-2xl text-center space-y-3">
-          {transcript && (
-            <p className="text-[26px] leading-[1.5] tracking-[0.195px] text-white font-medium font-sans">
-              {transcript}
-              {interim && <span className="text-[#969696]">{interim}</span>}
-            </p>
-          )}
-
-          {isThinking && (
-            <p className="text-[13px] text-[#8f8f8f] animate-pulse uppercase tracking-[1.1px] font-semibold">
-              Thinking...
-            </p>
-          )}
-
-          {aiReply && (
-            <div className="flex items-start gap-3 justify-center">
-              <button
-                onClick={() => speak(aiReply)}
-                className="mt-1 shrink-0 p-2 hover:bg-[#da291c]/20 transition-colors cursor-pointer"
-                title="Click to hear"
-              >
-                {isSpeaking ? (
-                  <VolumeX className="size-5 text-[#da291c] animate-pulse" />
-                ) : (
-                  <Volume2 className="size-5 text-[#da291c]" />
-                )}
-              </button>
-              <p className="text-[18px] leading-[1.2] text-white font-medium font-sans text-left">
-                {aiReply}
-              </p>
-            </div>
-          )}
+      <div className="absolute top-0 right-0 z-20 p-3 safe-top sm:p-4">
+        <div className="sm:hidden flex items-center gap-2 bg-[#252525]/80 backdrop-blur-sm border border-[#303030] px-3 py-1.5 text-[10px] font-mono rounded-full">
+          <div className={`size-1.5 rounded-full ${isListening ? 'bg-[#22c55e]' : isSpeaking ? 'bg-[#3b82f6]' : 'bg-[#666666]'}`} />
+          <span className="text-[#969696] uppercase tracking-wider">
+            {isSpeaking ? 'Speaking' : isListening ? 'Listening' : 'Idle'}
+          </span>
         </div>
-      </div>
-
-      <div className="absolute top-0 right-0 z-20 p-4">
-        <div className="bg-[#252525]/90 backdrop-blur-sm border border-[#303030] px-4 py-3 text-[11px] font-mono">
+        <div className="hidden sm:block bg-[#252525]/90 backdrop-blur-sm border border-[#303030] px-4 py-3 text-[11px] font-mono">
           <div className="flex items-center gap-2 mb-2">
             <div className={`size-2 rounded-full ${isListening ? 'bg-[#22c55e]' : isSpeaking ? 'bg-[#3b82f6]' : 'bg-[#666666]'}`} />
             <span className="text-[#969696] uppercase tracking-wider">
@@ -394,10 +377,57 @@ export default function Home() {
         </div>
       </div>
 
-      <div className="absolute inset-0 flex flex-col items-center justify-end pb-16 z-10 gap-6">
+      <div className="absolute top-0 inset-x-0 z-10 flex justify-center px-4 pt-14 sm:px-6 sm:pt-8">
+        <div className="max-w-2xl w-full text-center space-y-2 sm:space-y-3 max-h-[40dvh] overflow-y-auto overscroll-contain scrollbar-none">
+          {transcript && (
+            <div className="bg-black/30 backdrop-blur-sm rounded-lg px-4 py-2 sm:bg-transparent sm:backdrop-blur-none sm:px-0 sm:py-0">
+              <p className="text-base sm:text-[26px] leading-[1.5] tracking-[0.195px] text-white font-medium font-sans">
+                {transcript}
+                {interim && <span className="text-[#969696]">{interim}</span>}
+              </p>
+            </div>
+          )}
+
+          {isThinking && (
+            <p className="text-xs sm:text-[13px] text-[#8f8f8f] animate-pulse uppercase tracking-[1.1px] font-semibold">
+              Thinking...
+            </p>
+          )}
+
+          {aiReply && (
+            <div className="bg-black/30 backdrop-blur-sm rounded-lg px-4 py-3 sm:bg-transparent sm:backdrop-blur-none sm:px-0 sm:py-0">
+              <div className="flex items-start gap-2 sm:gap-3 justify-center">
+                <button
+                  onClick={() => speak(aiReply)}
+                  className="mt-0.5 sm:mt-1 shrink-0 p-2.5 sm:p-2 hover:bg-[#da291c]/20 transition-colors cursor-pointer min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 flex items-center justify-center"
+                  title="Click to hear"
+                >
+                  {isSpeaking ? (
+                    <VolumeX className="size-5 text-[#da291c] animate-pulse" />
+                  ) : (
+                    <Volume2 className="size-5 text-[#da291c]" />
+                  )}
+                </button>
+                <p className="text-[15px] sm:text-[18px] leading-[1.3] sm:leading-[1.2] text-white font-medium font-sans text-left">
+                  {aiReply}
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="absolute inset-0 flex flex-col items-center justify-end pb-24 sm:pb-16 safe-bottom z-10 gap-5 sm:gap-6">
+        {!sttSupported && (
+          <div className="mx-4 mb-1 px-4 py-3 bg-[#da291c]/10 border border-[#da291c]/30 text-[#da291c] text-xs sm:text-sm text-center max-w-xs sm:max-w-sm leading-relaxed">
+            Speech recognition is not supported in this browser.
+            <br className="sm:hidden" />
+            <span className="sm:hidden"> On iPhone, open this page in Safari. On Android, use Chrome.</span>
+          </div>
+        )}
         <button
           onClick={toggleMic}
-          className="rounded-full size-16 flex items-center justify-center bg-yellow-500/15 hover:bg-yellow-500/30 border border-yellow-500/40 text-yellow-400 transition-all duration-300 cursor-pointer"
+          className="rounded-full size-16 sm:size-16 flex items-center justify-center bg-yellow-500/15 hover:bg-yellow-500/30 border border-yellow-500/40 text-yellow-400 transition-all duration-300 cursor-pointer active:scale-95"
         >
           {isListening ? (
             <MicOff className="size-7" />
@@ -406,7 +436,7 @@ export default function Home() {
           )}
         </button>
 
-        <p className="text-[12px] text-[#666666] uppercase tracking-[1.1px] font-semibold select-none">
+        <p className="text-[11px] sm:text-[12px] text-[#666666] uppercase tracking-[1.1px] font-semibold select-none">
           {isSpeaking ? 'Speaking...' : isListening ? 'Listening' : 'Starting...'}
         </p>
       </div>
