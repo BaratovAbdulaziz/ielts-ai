@@ -1,36 +1,47 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# IELTS AI
 
-## Getting Started
+Audio-reactive IELTS speaking practice with a 3D glass orb, real-time STT, AI conversation, and neural TTS.
 
-First, run the development server:
+## Features
+
+- **Glass Orb Visualization** — Three.js WebGL sphere with GLSL shaders, reacts to your voice in real-time. Red/black when you speak, ocean blue when AI responds.
+- **Speech-to-Text** — Web Speech API captures your English speech automatically
+- **AI Conversation** — Free OpenRouter models with automatic fallback chain
+- **Neural TTS** — Server-side Edge voices (msedge-tts) for natural AI responses
+- **Admin Panel** — `/pathfinder` for managing API keys and fallback chain
+
+## Quick Start
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) — mic auto-starts, just speak.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Configuration
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Add your API key in the admin panel at `/pathfinder`, or create `config.json`:
 
-## Learn More
+```json
+{
+  "API_KEYS": [
+    { "name": "mykey", "key": "sk-...", "type": "openrouter" }
+  ],
+  "FALLBACK_CHAIN": ["mykey"]
+}
+```
 
-To learn more about Next.js, take a look at the following resources:
+**Supported providers:** `openrouter` (free models), `groq`, `gemini`
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Tech Stack
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- Next.js 16 (App Router, Turbopack)
+- React 19, TypeScript
+- Three.js + GLSL shaders
+- Tailwind CSS v4, shadcn v4
+- msedge-tts (server-side TTS)
 
-## Deploy on Vercel
+## License
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Private
