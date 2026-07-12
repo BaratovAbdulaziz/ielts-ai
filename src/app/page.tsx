@@ -40,6 +40,8 @@ export default function Home() {
   const lastSentRef = useRef('');
   const isSpeakingRef = useRef(false);
 
+  const isListeningRef = useRef(false);
+
   const stopRecognition = useCallback(() => {
     recognitionRef.current?.stop();
     recognitionRef.current = null;
@@ -48,6 +50,8 @@ export default function Home() {
   }, []);
 
   const [sttSupported, setSttSupported] = useState(true);
+
+  const startRecognitionRef = useRef<() => void>(() => {});
 
   const startRecognition = useCallback(() => {
     if (isSpeakingRef.current || recognitionRef.current) return;
@@ -77,20 +81,30 @@ export default function Home() {
       setInterim(interimText);
     };
 
-    recognition.onerror = () => {};
+    recognition.onerror = (event: Event & { error?: string }) => {
+      console.warn('STT error:', event.error);
+      if (event.error === 'not-allowed') {
+        setSttSupported(false);
+      }
+    };
+
     recognition.onend = () => {
-      if (recognitionRef.current && isListening && !isSpeakingRef.current) {
-        try {
-          recognition.start();
-        } catch {
-          // already started
-        }
+      if (isListeningRef.current && !isSpeakingRef.current) {
+        setTimeout(() => {
+          if (isListeningRef.current && !isSpeakingRef.current && !recognitionRef.current) {
+            startRecognitionRef.current();
+          }
+        }, 100);
       }
     };
 
     recognition.start();
     recognitionRef.current = recognition;
-  }, [isListening]);
+  }, []);
+
+  useEffect(() => {
+    startRecognitionRef.current = startRecognition;
+  });
 
   const speak = useCallback((text: string) => {
     try {
@@ -137,7 +151,7 @@ export default function Home() {
         lastSentRef.current = '';
         setTimeout(() => {
           unmuteMic();
-          if (isListening) {
+          if (isListeningRef.current) {
             setTimeout(() => startRecognition(), 100);
           }
         }, 300);
@@ -148,7 +162,7 @@ export default function Home() {
         unmuteMic();
         isSpeakingRef.current = false;
         setIsSpeaking(false);
-        if (isListening) {
+        if (isListeningRef.current) {
           setTimeout(() => startRecognition(), 50);
         }
       };
@@ -158,7 +172,7 @@ export default function Home() {
         unmuteMic();
         isSpeakingRef.current = false;
         setIsSpeaking(false);
-        if (isListening) {
+        if (isListeningRef.current) {
           setTimeout(() => startRecognition(), 50);
         }
       });
@@ -167,7 +181,7 @@ export default function Home() {
       isSpeakingRef.current = false;
       setIsSpeaking(false);
     }
-  }, [isListening, startRecognition]);
+  }, [startRecognition]);
 
   const askAI = useCallback(
     async (userMessage: string) => {
@@ -241,7 +255,8 @@ export default function Home() {
   }, [transcript, interim, askAI]);
 
   const toggleMic = useCallback(async () => {
-    if (isListening) {
+    if (isListeningRef.current) {
+      isListeningRef.current = false;
       analyserRef.current?.disconnect();
       sourceRef.current?.disconnect();
       micGainRef.current?.disconnect();
@@ -287,20 +302,18 @@ export default function Home() {
       micGainRef.current = micGain;
       audioDataRef.current = new Uint8Array(analyser.frequencyBinCount);
 
+      isListeningRef.current = true;
       setIsListening(true);
       setAiReply('');
       lastSentRef.current = '';
-    }
-  }, [isListening, stopRecognition]);
 
-  useEffect(() => {
-    if (isListening) {
       startRecognition();
     }
-  }, [isListening, startRecognition]);
+  }, [stopRecognition, startRecognition]);
 
   useEffect(() => {
     return () => {
+      isListeningRef.current = false;
       cancelAnimationFrame(rafRef.current);
       analyserRef.current?.disconnect();
       sourceRef.current?.disconnect();
@@ -309,13 +322,6 @@ export default function Home() {
       ctxRef.current?.close();
       recognitionRef.current?.stop();
     };
-  }, []);
-
-  useEffect(() => {
-    if (!isListening && !isSpeaking) {
-      toggleMic();
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const sphereMode = isSpeaking ? 'speaking' : isListening ? 'listening' : 'idle';
